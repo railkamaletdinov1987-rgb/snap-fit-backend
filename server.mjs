@@ -43,8 +43,8 @@ app.post('/api/analyze', async (req, res) => {
 
         const parts = [{ text: promptText }];
 
-        // Используем базовую модель, которая поддерживается во всех аккаунтах v1beta
-        let apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
+        // Используем актуальную рабочую модель gemini-2.5-flash
+        let apiResponse = await callGeminiApi('gemini-2.5-flash', apiKey, parts);
 
         const data = await apiResponse.json();
 
