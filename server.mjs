@@ -60,12 +60,12 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 1. Пробуем актуальную быструю модель
-        let apiResponse = await callGeminiApi('gemini-2.5-flash', apiKey, parts);
+        // 1. Используем актуальную и стабильную модель gemini-1.5-flash
+        let apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
 
-        // 2. Если перегружена (503 или 429), пробуем резервную
+        // 2. Если перегружена (503 или 429), пробуем повторить запрос
         if (!apiResponse.ok && (apiResponse.status === 503 || apiResponse.status === 429)) {
-            console.log('⚠️ Основная модель перегружена, переключаемся на резервную модель...');
+            console.log('⚠️ Основная модель перегружена, повторяем запрос...');
             await new Promise(resolve => setTimeout(resolve, 2000));
             apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
         }
