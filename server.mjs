@@ -43,18 +43,30 @@ app.post('/api/analyze', async (req, res) => {
 
         const parts = [{ text: promptText }];
 
-        // Используем актуальную рабочую модель gemini-2.5-flash
-        let apiResponse = await callGeminiApi('gemini-2.5-flash', apiKey, parts);
+        // Список моделей для автопробы
+        const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+        let apiResponse = null;
+        let lastError = null;
 
-        const data = await apiResponse.json();
+        for (const model of modelsToTry) {
+            console.log(`Пробуем модель: ${model}`);
+            const resApi = await callGeminiApi(model, apiKey, parts);
+            if (resApi.ok) {
+                apiResponse = resApi;
+                break;
+            } else {
+                lastError = await resApi.json();
+            }
+        }
 
-        if (!apiResponse.ok) {
-            return res.status(apiResponse.status).json({
+        if (!apiResponse || !apiResponse.ok) {
+            return res.status(500).json({
                 success: false,
-                error: data.error?.message || JSON.stringify(data)
+                error: "Не удалось подобрать рабочую модель. Ошибка: " + JSON.stringify(lastError)
             });
         }
 
+        const data = await apiResponse.json();
         const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || "Не удалось получить ответ.";
         res.json({ success: true, text: textOutput });
 
