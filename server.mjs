@@ -8,15 +8,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// ТЕСТОВЫЙ МАРШРУТ (GET) - чтобы проверить, жив ли сервер
+// ТЕСТОВЫЙ МАРШРУТ (GET)
 app.get('/test', (req, res) => {
     res.send('Сервер работает!');
-});
-
-// ТЕСТОВЫЙ МАРШРУТ (POST) - чтобы проверить, доходят ли POST запросы
-app.post('/test-post', (req, res) => {
-    console.log("POST запрос успешно получен на /test-post!");
-    res.json({ success: true, message: "POST запрос успешно дошел до сервера!" });
 });
 
 // Вспомогательная функция отправки запроса
@@ -60,20 +54,18 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 1. Используем актуальную и стабильную модель gemini-1.5-flash
-        let apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
+        // Используем gemini-1.5-pro
+        let apiResponse = await callGeminiApi('gemini-1.5-pro', apiKey, parts);
 
-        // 2. Если перегружена (503 или 429), пробуем повторить запрос
+        // Если перегружена, пробуем один раз повторить
         if (!apiResponse.ok && (apiResponse.status === 503 || apiResponse.status === 429)) {
-            console.log('⚠️ Основная модель перегружена, повторяем запрос...');
             await new Promise(resolve => setTimeout(resolve, 2000));
-            apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
+            apiResponse = await callGeminiApi('gemini-1.5-pro', apiKey, parts);
         }
 
         const data = await apiResponse.json();
 
         if (!apiResponse.ok) {
-            console.error('❌ Ошибка от Gemini API:', data);
             return res.status(apiResponse.status).json({
                 success: false,
                 error: data.error?.message || JSON.stringify(data)
@@ -84,7 +76,6 @@ app.post('/api/analyze', async (req, res) => {
         res.json({ success: true, text: textOutput });
 
     } catch (error) {
-        console.error('❌ Ошибка сервера:', error);
         res.status(500).json({ success: false, error: error.message || String(error) });
     }
 });
