@@ -32,8 +32,8 @@ app.post('/api/analyze', async (req, res) => {
 
 Дай 3 детальных персональных совета по питанию и прогрессии нагрузок под эти параметры.`;
 
-        // Прямой запрос к актуальной модели gemini-2.5-flash
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        // Используем то имя, которое требует сам Google
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
         
         const apiResponse = await fetch(url, {
             method: 'POST',
