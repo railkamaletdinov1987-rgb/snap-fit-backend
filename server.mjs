@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Вспомогательная функция отправки запроса с повторными попытками
+// Вспомогательная функция отправки запроса
 async function callGeminiApi(modelName, apiKey, parts) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
     return await fetch(url, {
@@ -49,10 +49,10 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 1. Пробуем основную модель gemini-3.6-flash
-        let apiResponse = await callGeminiApi('gemini-3.6-flash', apiKey, parts);
+        // 1. Пробуем актуальную быструю модель
+        let apiResponse = await callGeminiApi('gemini-2.5-flash', apiKey, parts);
 
-        // 2. Если сервер перегружен (статус 503 или 429), делаем паузу 2 секунды и пробуем запасную модель
+        // 2. Если перегружена (503 или 429), пробуем резервную
         if (!apiResponse.ok && (apiResponse.status === 503 || apiResponse.status === 429)) {
             console.log('⚠️ Основная модель перегружена, переключаемся на резервную модель...');
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -78,5 +78,5 @@ app.post('/api/analyze', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => console.log(`Сервер запущен на порту ${PORT}`));
