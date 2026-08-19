@@ -8,6 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// ТЕСТОВЫЙ МАРШРУТ (для проверки связи с сервером)
+app.get('/test', (req, res) => {
+    res.send('Сервер работает!');
+});
+
 // Вспомогательная функция отправки запроса
 async function callGeminiApi(modelName, apiKey, parts) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
@@ -24,7 +29,7 @@ app.post('/api/analyze', async (req, res) => {
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
-            return res.status(500).json({ success: false, error: "GEMINI_API_KEY не найден в .env" });
+            return res.status(500).json({ success: false, error: "GEMINI_API_KEY не найден в .env на сервере!" });
         }
 
         const promptText = `Проанализируй физические данные:
@@ -49,12 +54,9 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 1. Пробуем актуальную быструю модель
         let apiResponse = await callGeminiApi('gemini-2.5-flash', apiKey, parts);
 
-        // 2. Если перегружена (503 или 429), пробуем резервную
         if (!apiResponse.ok && (apiResponse.status === 503 || apiResponse.status === 429)) {
-            console.log('⚠️ Основная модель перегружена, переключаемся на резервную модель...');
             await new Promise(resolve => setTimeout(resolve, 2000));
             apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
         }
@@ -62,7 +64,6 @@ app.post('/api/analyze', async (req, res) => {
         const data = await apiResponse.json();
 
         if (!apiResponse.ok) {
-            console.error('❌ Ошибка от Gemini API:', data);
             return res.status(apiResponse.status).json({
                 success: false,
                 error: data.error?.message || JSON.stringify(data)
@@ -73,7 +74,6 @@ app.post('/api/analyze', async (req, res) => {
         res.json({ success: true, text: textOutput });
 
     } catch (error) {
-        console.error('❌ Ошибка сервера:', error);
         res.status(500).json({ success: false, error: error.message || String(error) });
     }
 });
