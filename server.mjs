@@ -12,15 +12,6 @@ app.get('/test', (req, res) => {
     res.send('Сервер работает!');
 });
 
-async function callGeminiApi(modelName, apiKey, parts) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-    return await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }] })
-    });
-}
-
 app.post('/api/analyze', async (req, res) => {
     try {
         const { gender, age, height, weight, goal, location, durationMonths } = req.body;
@@ -41,32 +32,24 @@ app.post('/api/analyze', async (req, res) => {
 
 Дай 3 детальных персональных совета по питанию и прогрессии нагрузок под эти параметры.`;
 
-        const parts = [{ text: promptText }];
+        // Прямой запрос к актуальной модели gemini-2.5-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        
+        const apiResponse = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+        });
 
-        // Список моделей для автопробы
-        const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
-        let apiResponse = null;
-        let lastError = null;
+        const data = await apiResponse.json();
 
-        for (const model of modelsToTry) {
-            console.log(`Пробуем модель: ${model}`);
-            const resApi = await callGeminiApi(model, apiKey, parts);
-            if (resApi.ok) {
-                apiResponse = resApi;
-                break;
-            } else {
-                lastError = await resApi.json();
-            }
-        }
-
-        if (!apiResponse || !apiResponse.ok) {
-            return res.status(500).json({
+        if (!apiResponse.ok) {
+            return res.status(apiResponse.status).json({
                 success: false,
-                error: "Не удалось подобрать рабочую модель. Ошибка: " + JSON.stringify(lastError)
+                error: data.error?.message || JSON.stringify(data)
             });
         }
 
-        const data = await apiResponse.json();
         const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || "Не удалось получить ответ.";
         res.json({ success: true, text: textOutput });
 
