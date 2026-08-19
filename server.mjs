@@ -16,6 +16,8 @@ app.get('/test', (req, res) => {
 // Вспомогательная функция отправки запроса
 async function callGeminiApi(modelName, apiKey, parts) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    console.log(`🚀 Отправка запроса к модели: ${modelName}`);
+    
     return await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,18 +56,21 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // Используем gemini-1.5-pro
-        let apiResponse = await callGeminiApi('gemini-1.5-pro', apiKey, parts);
+        // Используем самую актуальную стабильную модель gemini-3.6-flash
+        let apiResponse = await callGeminiApi('gemini-3.6-flash', apiKey, parts);
 
-        // Если перегружена, пробуем один раз повторить
-        if (!apiResponse.ok && (apiResponse.status === 503 || apiResponse.status === 429)) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            apiResponse = await callGeminiApi('gemini-1.5-pro', apiKey, parts);
+        // Если модель недоступна, пробуем запасной вариант gemini-1.5-flash
+        if (!apiResponse.ok) {
+            const errData = await apiResponse.json();
+            console.log('⚠️ Ошибка с gemini-3.6-flash, пробуем gemini-1.5-flash...', errData);
+            
+            apiResponse = await callGeminiApi('gemini-1.5-flash', apiKey, parts);
         }
 
         const data = await apiResponse.json();
 
         if (!apiResponse.ok) {
+            console.error('❌ Ошибка от Gemini API:', data);
             return res.status(apiResponse.status).json({
                 success: false,
                 error: data.error?.message || JSON.stringify(data)
@@ -76,6 +81,7 @@ app.post('/api/analyze', async (req, res) => {
         res.json({ success: true, text: textOutput });
 
     } catch (error) {
+        console.error('❌ Ошибка сервера:', error);
         res.status(500).json({ success: false, error: error.message || String(error) });
     }
 });
