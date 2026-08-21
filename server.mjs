@@ -12,35 +12,6 @@ app.get('/test', (req, res) => {
     res.send('Сервер работает!');
 });
 
-async function callGeminiWithRetry(apiKey, promptText, retries = 2, delay = 15000) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
-    
-    for (let i = 0; i <= retries; i++) {
-        const apiResponse = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-        });
-
-        const data = await apiResponse.json();
-
-        // Если всё успешно, возвращаем результат
-        if (apiResponse.ok) {
-            return { success: true, data };
-        }
-
-        // Если уперлись в лимит (429) и это еще не последняя попытка — ждем и повторяем
-        if (apiResponse.status === 429 && i < retries) {
-            console.log(`⚠️ Превышен лимит (429), ждем ${delay / 1000} сек. перед повтором...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-        }
-
-        // Любая другая ошибка
-        return { success: false, status: apiResponse.status, error: data.error?.message || JSON.stringify(data) };
-    }
-}
-
 app.post('/api/analyze', async (req, res) => {
     try {
         const { gender, age, height, weight, goal, location, durationMonths } = req.body;
@@ -50,24 +21,35 @@ app.post('/api/analyze', async (req, res) => {
             return res.status(500).json({ success: false, error: "GEMINI_API_KEY не найден в .env" });
         }
 
-        const promptText = `Проанализируй физические данные:
+        const promptText = `Составь детальный и мотивирующий персональный план тренировок и питания на ${durationMonths || 3} месяца.
+Параметры пользователя:
 - Пол: ${gender}
 - Возраст: ${age} лет
 - Рост: ${height} см
 - Вес: ${weight} кг
 - Цель: ${goal}
 - Локация: ${location}
-- Срок программы: ${durationMonths} мес.
 
-Дай 3 детальных персональных совета по питанию и прогрессии нагрузок под эти параметры.`;
+Разбей план по неделям и дням недели (например, День 1, День 2 и т.д.), распиши упражнения, подходы, повторения и дай рекомендации по питанию.`;
 
-        const result = await callGeminiWithRetry(apiKey, promptText);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+        
+        const apiResponse = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+        });
 
-        if (!result.success) {
-            return res.status(result.status || 500).json({ success: false, error: result.error });
+        const data = await apiResponse.json();
+
+        if (!apiResponse.ok) {
+            return res.status(apiResponse.status).json({
+                success: false,
+                error: data.error?.message || JSON.stringify(data)
+            });
         }
 
-        const textOutput = result.data.candidates?.[0]?.content?.parts?.[0]?.text || "Не удалось получить ответ.";
+        const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || "Не удалось получить ответ.";
         res.json({ success: true, text: textOutput });
 
     } catch (error) {
